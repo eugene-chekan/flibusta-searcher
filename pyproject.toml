@@ -1,0 +1,27 @@
+[project]
+name = "flibusta-searcher"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "feedparser>=6.0.12",
+    "httpx>=0.28.1",
+    "rich>=14.2.0",
+    "typer[all]>=0.21.0",
+]
+
+[project.scripts]
+flibusta-searcher = "flibusta_searcher.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/flibusta_searcher"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.10",
+    "ty>=0.0.7",
+]
+
+[tool.ruff]
+line-length = 120
