@@ -110,17 +110,51 @@ This displays all books by the author with ID 12345.
 
 ## Project Structure
 
+The project follows Clean Architecture principles:
+
 ```
 flibusta-searcher/
 ├── src/
 │   └── flibusta_searcher/
 │       ├── __init__.py
-│       ├── cli.py          # CLI interface and commands
-│       ├── client.py       # Flibusta API client
-│       └── models.py       # Data models (Book, Author)
-├── pyproject.toml          # Project configuration
+│       ├── cli.py              # CLI entry point
+│       ├── container.py        # Dependency injection
+│       ├── models.py          # Re-exports domain entities
+│       ├── domain/             # Domain layer
+│       │   ├── entities.py    # Book, Author
+│       │   ├── value_objects.py
+│       │   └── exceptions.py
+│       ├── application/       # Application layer (use cases)
+│       │   ├── ports.py       # Interfaces
+│       │   ├── dto.py
+│       │   └── use_cases/
+│       ├── infrastructure/    # Infrastructure layer
+│       │   ├── config.py      # Pydantic config
+│       │   ├── opds/          # OPDS client & parser
+│       │   ├── download/      # File downloader
+│       │   └── pagination.py
+│       └── presentation/     # Presentation layer
+│           ├── formatters.py  # Rich tables
+│           ├── views.py       # Interactive views
+│           └── utils.py
+├── .env                      # FLIBUSTA_BASE_URL, FLIBUSTA_OPDS_URL
+├── pyproject.toml
 └── README.md
 ```
+
+## Configuration
+
+Create a `.env` file in the project root:
+
+```
+FLIBUSTA_BASE_URL=https://flibusta.is
+FLIBUSTA_OPDS_URL=https://flibusta.is/opds
+```
+
+Optional settings (with defaults):
+- `FLIBUSTA_DOWNLOAD_DIR` - Download directory (default: `./downloads`)
+- `FLIBUSTA_DEFAULT_TIMEOUT` - HTTP timeout in seconds (default: 30)
+- `FLIBUSTA_DOWNLOAD_TIMEOUT` - Download timeout (default: 60)
 
 ## Development
 
@@ -132,6 +166,7 @@ The project uses the following main dependencies:
 - **rich**: Terminal formatting and tables
 - **httpx**: HTTP client for API requests
 - **feedparser**: OPDS catalog parsing
+- **pydantic-settings**: Configuration with validation
 
 ### Development Tools
 

@@ -1,190 +1,184 @@
-from flibusta_searcher.models import Book, Author
+"""CLI entry point with dependency injection."""
+
+import httpx
 import typer
-import click
-from rich.console import Console
-from rich.table import Table
 from rich import print as rprint
-from .client import FlibustaClient
+from rich.console import Console
+
+from .container import Container
+from .domain.exceptions import ParseError
+from .presentation.formatters import create_authors_table
+from .presentation.views import get_user_choice, view_books_paginated
 
 app = typer.Typer(help="Search for books and authors on Flibusta.")
 console = Console()
-client = FlibustaClient()
+
+# Container is created lazily on first use
+_container: Container | None = None
+
+
+def _get_container() -> Container:
+    """Get or create the DI container."""
+    global _container  # noqa: PLW0603
+    if _container is None:
+        _container = Container()
+    return _container
 
 
 @app.callback(invoke_without_command=True)
-def callback(ctx: typer.Context):
+def callback(ctx: typer.Context) -> None:
     """Flibusta Searcher CLI."""
     if ctx.invoked_subcommand is None:
-        rprint("[bold green]Welcome to Flibusta Searcher![/bold green]")
+        _interactive_menu()
 
-        choice = typer.prompt(
-            "Choose action",
-            type=click.Choice(["search", "author-books"]),
-            default="search",
-        )
 
-        if choice == "search":
-            query = typer.prompt("Enter search query (book title or author)")
-            _search_books(query)
+def _interactive_menu() -> None:
+    """Interactive menu loop for keyboard-based navigation."""
+    container = _get_container()
+
+    rprint("[bold green]Welcome to Flibusta Searcher![/bold green]")
+    rprint("[dim]Search for books and authors on Flibusta[/dim]\n")
+
+    while True:
+        rprint("\n[bold cyan]Menu:[/bold cyan]")
+        rprint("  [green]1[/green] - Search for authors")
+        rprint("  [green]2[/green] - Search for books")
+        rprint("  [yellow]q[/yellow] - Quit\n")
+
+        choice = get_user_choice("Enter your choice", "q").strip().lower()
+
+        if choice == "q":
+            rprint("\n[bold green]Goodbye![/bold green]")
+            break
+        if choice == "1":
+            query = typer.prompt("Enter author name to search")
+            if query:
+                _search_authors(container, query)
+        elif choice == "2":
+            query = typer.prompt("Enter book title to search")
+            if query:
+                _search_books(container, query)
         else:
-            author_id = typer.prompt("Enter Author ID")
-            author_books(author_id)
+            rprint("[red]Invalid choice. Please enter 1, 2, or q.[/red]")
 
 
 @app.command()
 def search(
     query: str = typer.Argument(..., help="Search query (book title or author name)."),
+    *,
     books: bool = typer.Option(True, "--books/--no-books", help="Search for books."),
-    authors: bool = typer.Option(False, "--authors/--no-authors", help="Search for authors.")
-):
+    authors: bool = typer.Option(False, "--authors/--no-authors", help="Search for authors."),
+) -> None:
     """Search Flibusta for books or authors."""
-    # If user didn't specify either, default to books
+    container = _get_container()
+
     if not books and not authors:
         books = True
 
     if authors:
-        # For author search, only generic pattern applies to name
-        _search_authors(query)
+        _search_authors(container, query)
 
     if books:
-        _search_books(query)
+        _search_books(container, query)
 
 
-def _search_authors(query: str):
+def _search_authors(container: Container, query: str) -> None:
+    """Search authors and optionally show their books."""
     rprint(f"[bold blue]Searching authors for:[/bold blue] {query}")
-    results = client.search_authors(query)
+    try:
+        results = container.search_authors.execute(query)
+    except ParseError as e:
+        rprint(f"[red]Error parsing catalog: {e}[/red]")
+        return
+    except httpx.HTTPError as e:
+        rprint(f"[red]Network error: {e}[/red]")
+        return
 
     if not results:
         rprint("[yellow]No authors found.[/yellow]")
         return
 
-    table = _create_authors_table(results)
+    table = create_authors_table(results)
     console.print(table)
 
-    # Prompt to list books for a selected author
-    try:
-        choice = typer.prompt(
-            "Enter Author number (or press Enter to skip)",
-            default="",
-            show_default=False,
-        )
-    except Exception:
-        choice = ""
+    choice = get_user_choice("Enter Author number (or press Enter to skip)")
     if choice:
         idx = int(choice) - 1
         author = results[idx] if 0 <= idx < len(results) else None
         if not author:
             rprint("[red]Invalid author number.[/red]")
             return
-        # Reuse author_books command logic
         rprint(f"[bold blue]Fetching books for author:[/bold blue] {author.name}")
-        books = client.get_author_books(author.id)
-        if not books:
+        try:
+            books_list = container.get_author_books.execute(author.id)
+        except ParseError as e:
+            rprint(f"[red]Error parsing catalog: {e}[/red]")
+            return
+        except httpx.HTTPError as e:
+            rprint(f"[red]Network error: {e}[/red]")
+            return
+        if not books_list:
             rprint("[yellow]No books found for this author.[/yellow]")
             return
-        table = _create_books_table(books)
-        console.print(table)
 
-        # Prompt for detailed view of a selected book
-        try:
-            choice = typer.prompt(
-                "Enter book number for full info (or press Enter to skip)",
-                default="",
-                show_default=False,
-            )
-        except Exception:
-            choice = ""
-        if choice:
-            try:
-                idx = int(choice) - 1
-                if 0 <= idx < len(books):
-                    sel_book = books[idx]
-                    # Display detailed information
-                    detail_table = _create_book_details_table(sel_book)
-                    console.print(detail_table)
-                else:
-                    rprint("[red]Invalid book number.[/red]")
-            except ValueError:
-                rprint("[red]Please enter a valid number.[/red]")
+        view_books_paginated(
+            books_list,
+            page_size=container.config.default_page_size,
+            download_use_case=container.download_book,
+            download_dir=container.config.download_dir,
+            console=console,
+        )
 
 
 @app.command()
 def author_books(
     author_id: str = typer.Argument(..., help="The ID of the author to fetch books for."),
-):
+) -> None:
     """List all books by a specific author ID."""
+    container = _get_container()
+
     rprint(f"[bold blue]Fetching books for author ID:[/bold blue] {author_id}")
-    results = client.get_author_books(author_id)
+    try:
+        results = container.get_author_books.execute(author_id)
+    except ParseError as e:
+        rprint(f"[red]Error parsing catalog: {e}[/red]")
+        return
+    except httpx.HTTPError as e:
+        rprint(f"[red]Network error: {e}[/red]")
+        return
 
     if not results:
         rprint("[yellow]No books found.[/yellow]")
         return
 
-    table = _create_books_table(results)
-    console.print(table)
-
-
-def _search_books(query: str):
-    rprint(f"[bold blue]Searching books for:[/bold blue] {query}")
-    results = client.search_books(query)
-    if not results:
-        rprint("[yellow]No books found.[/yellow]")
-        return
-
-    table = _create_books_table(results)
-    console.print(table)
-
-
-def _create_authors_table(authors: list[Author]) -> Table:
-    table = Table(title=f"Found Authors ({len(authors)})")
-    table.add_column("Nr.", style="green")
-    table.add_column("ID", style="green")
-    table.add_column("Name", style="cyan", no_wrap=True)
-    table.add_column("Books count", style="yellow")
-    table.add_column("Link", style="magenta")
-
-    for i, author in enumerate(authors):
-        table.add_row(str(i + 1), author.id, author.name, str(author.number_of_books), author.link)
-    return table
-
-
-def _create_books_table(books: list[Book]) -> Table:
-    table = Table(title=f"Found Books ({len(books)})")
-    table.add_column("Nr.", style="green")
-    table.add_column("Title", style="cyan", no_wrap=False)
-    table.add_column("Author", style="green")
-    table.add_column("Formats", style="yellow")
-    # Combine clickable format links; omit raw URLs column
-    for i, book in enumerate(books):
-        format_links = ", ".join(
-            f"[link={url}]{fmt}[/]" for fmt, url in book.download_links.items()
-        )
-        table.add_row(str(i + 1), book.title, ", ".join([a.name for a in book.authors]), format_links)
-
-    return table
-
-
-def _create_book_details_table(book: Book) -> Table:
-    detail_table = Table(title="Book Details", show_header=False)
-    detail_table.add_row("Title", book.title)
-    detail_table.add_row("Authors", ", ".join([a.name for a in book.authors]))
-    if book.tags:
-        detail_table.add_row("Tags", ", ".join(book.tags))
-    if book.size:
-        detail_table.add_row("Size", book.size)
-    if book.cover_image:
-        detail_table.add_row(
-            "Cover", f"[link={book.cover_image}]Cover Image[/]"
-        )
-    fmt_links = ", ".join(
-        f"[link={url}]{fmt}[/]"
-        for fmt, url in book.download_links.items()
+    view_books_paginated(
+        results,
+        page_size=container.config.default_page_size,
+        download_use_case=container.download_book,
+        download_dir=container.config.download_dir,
+        console=console,
     )
-    detail_table.add_row("Formats", fmt_links)
-    if language := book.language:
-        detail_table.add_row("Language", language)
-    if published := book.published:
-        detail_table.add_row("Published", published)
-    if description := book.summary:
-        detail_table.add_row("Description", description)
-    return detail_table
+
+
+def _search_books(container: Container, query: str) -> None:
+    """Search books and display results."""
+    rprint(f"[bold blue]Searching books for:[/bold blue] {query}")
+    try:
+        results = container.search_books.execute(query)
+    except ParseError as e:
+        rprint(f"[red]Error parsing catalog: {e}[/red]")
+        return
+    except httpx.HTTPError as e:
+        rprint(f"[red]Network error: {e}[/red]")
+        return
+    if not results:
+        rprint("[yellow]No books found.[/yellow]")
+        return
+
+    view_books_paginated(
+        results,
+        page_size=container.config.default_page_size,
+        download_use_case=container.download_book,
+        download_dir=container.config.download_dir,
+        console=console,
+    )

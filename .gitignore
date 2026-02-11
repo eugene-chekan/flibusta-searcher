@@ -8,3 +8,12 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Downloads
+downloads/
+
+# environment variables
+.env
+
+# cursor
+.cursor/
