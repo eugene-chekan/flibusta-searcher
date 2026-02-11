@@ -1,7 +1,10 @@
 """CLI entry point with dependency injection."""
 
+import sys
+
 import httpx
 import typer
+from pydantic import ValidationError
 from rich import print as rprint
 from rich.console import Console
 
@@ -17,12 +20,31 @@ console = Console()
 _container: Container | None = None
 
 
-def _get_container() -> Container:
+def _get_container() -> Container | None:
     """Get or create the DI container."""
     global _container  # noqa: PLW0603
     if _container is None:
-        _container = Container()
+        try:
+            _container = Container()
+        except ValidationError as e:
+            _show_config_error(e)
+            sys.exit(1)
     return _container
+
+
+def _show_config_error(err: ValidationError) -> None:
+    """Show a friendly message for Pydantic config validation errors."""
+    rprint("[bold red]Configuration error[/bold red]")
+    rprint("\nRequired environment variables are missing or invalid.\n")
+    rprint("[bold]Recommendations:[/bold]")
+    rprint("  1. Create a [cyan].env[/cyan] file in the project directory with:")
+    rprint("     [green]FLIBUSTA_BASE_URL[/green]=https://flibusta.is")
+    rprint("     [green]FLIBUSTA_OPDS_URL[/green]=https://flibusta.is/opds")
+    rprint("\n  2. Or set these variables in your shell before running.")
+    rprint("\n  3. When running from a different directory, ensure [cyan].env[/cyan]")
+    rprint("     exists there or variables are exported.\n")
+    rprint("[dim]Raw validation details:[/dim]")
+    rprint(err)
 
 
 @app.callback(invoke_without_command=True)

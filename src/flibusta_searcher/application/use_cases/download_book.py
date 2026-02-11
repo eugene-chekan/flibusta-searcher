@@ -2,9 +2,9 @@
 
 from pathlib import Path
 
-from src.flibusta_searcher.application.dto import DownloadResult
-from src.flibusta_searcher.application.ports import DownloadPort
-from src.flibusta_searcher.domain.entities import Book
+from flibusta_searcher.application.dto import DownloadResult
+from flibusta_searcher.application.ports import DownloadPort
+from flibusta_searcher.domain.entities import Book
 
 
 class DownloadBookUseCase:

@@ -5,10 +5,10 @@ from typing import Any
 
 import httpx
 
-from src.flibusta_searcher.domain.entities import Author, Book
-from src.flibusta_searcher.infrastructure.config import FlibustaConfig
-from src.flibusta_searcher.infrastructure.opds.parser import OpdsParser
-from src.flibusta_searcher.infrastructure.pagination import fetch_paginated
+from flibusta_searcher.domain.entities import Author, Book
+from flibusta_searcher.infrastructure.config import FlibustaConfig
+from flibusta_searcher.infrastructure.opds.parser import OpdsParser
+from flibusta_searcher.infrastructure.pagination import fetch_paginated
 
 logger = logging.getLogger(__name__)
 

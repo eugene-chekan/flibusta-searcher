@@ -2,7 +2,7 @@
 
 from rich.table import Table
 
-from src.flibusta_searcher.domain.entities import Author, Book
+from flibusta_searcher.domain.entities import Author, Book
 
 
 def create_authors_table(authors: list[Author]) -> Table:
@@ -40,6 +40,7 @@ def create_books_table(
     for i, book in enumerate(books):
         book_number = page_offset + i + 1
         format_links = ", ".join(f"[link={url}]{fmt}[/]" for fmt, url in book.download_links.items())
+        # TODO: collapse authors list to 2-3 with "+ n more" when multiple authors
         table.add_row(str(book_number), book.title, ", ".join(book.get_author_names()), format_links)
     return table
 

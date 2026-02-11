@@ -7,12 +7,12 @@ import typer
 from rich import print as rprint
 from rich.console import Console
 
-from src.flibusta_searcher.domain.entities import Book
-from src.flibusta_searcher.domain.exceptions import DownloadError
-from src.flibusta_searcher.presentation.formatters import create_book_details_table, create_books_table
+from flibusta_searcher.domain.entities import Book
+from flibusta_searcher.domain.exceptions import DownloadError
+from flibusta_searcher.presentation.formatters import create_book_details_table, create_books_table
 
 if TYPE_CHECKING:
-    from src.flibusta_searcher.application.use_cases.download_book import DownloadBookUseCase
+    from flibusta_searcher.application.use_cases.download_book import DownloadBookUseCase
 
 
 def get_user_choice(prompt_text: str, default: str = "") -> str:

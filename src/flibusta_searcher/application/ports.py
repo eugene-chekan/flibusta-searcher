@@ -3,8 +3,8 @@
 from pathlib import Path
 from typing import Protocol
 
-from src.flibusta_searcher.application.dto import DownloadResult
-from src.flibusta_searcher.domain.entities import Author, Book
+from flibusta_searcher.application.dto import DownloadResult
+from flibusta_searcher.domain.entities import Author, Book
 
 
 class SearchPort(Protocol):

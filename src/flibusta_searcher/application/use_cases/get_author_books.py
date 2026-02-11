@@ -1,7 +1,7 @@
 """Get author books use case."""
 
-from src.flibusta_searcher.application.ports import SearchPort
-from src.flibusta_searcher.domain.entities import Book
+from flibusta_searcher.application.ports import SearchPort
+from flibusta_searcher.domain.entities import Book
 
 
 class GetAuthorBooksUseCase:

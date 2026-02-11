@@ -9,13 +9,14 @@ class FlibustaClient:
     """Client for searching Flibusta catalog. Wraps OpdsClient with config."""
 
     def __init__(self, base_url: str | None = None) -> None:
+        """Initialize the Flibusta client."""
         self._config = FlibustaConfig()
         if base_url:
             self._config = self._config.model_copy(
                 update={
                     "base_url": base_url,
                     "opds_url": f"{base_url.rstrip('/')}/opds",
-                }
+                },
             )
         parser = OpdsParser(base_url=self._config.base_url)
         self._client = OpdsClient(config=self._config, parser=parser)

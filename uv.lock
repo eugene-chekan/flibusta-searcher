@@ -68,7 +68,7 @@ wheels = [
 [[package]]
 name = "flibusta-searcher"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "feedparser" },
     { name = "httpx" },

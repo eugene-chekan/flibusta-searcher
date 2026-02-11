@@ -4,11 +4,11 @@ from pathlib import Path
 
 import httpx
 
-from src.flibusta_searcher.application.dto import DownloadResult
-from src.flibusta_searcher.domain.entities import Book
-from src.flibusta_searcher.domain.exceptions import DownloadError
-from src.flibusta_searcher.domain.value_objects import sanitize_filename
-from src.flibusta_searcher.infrastructure.config import FlibustaConfig
+from flibusta_searcher.application.dto import DownloadResult
+from flibusta_searcher.domain.entities import Book
+from flibusta_searcher.domain.exceptions import DownloadError
+from flibusta_searcher.domain.value_objects import sanitize_filename
+from flibusta_searcher.infrastructure.config import FlibustaConfig
 
 
 class FileDownloader:

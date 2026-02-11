@@ -6,9 +6,20 @@ from urllib.parse import urljoin
 
 from feedparser import parse
 
-from src.flibusta_searcher.domain.entities import Author, Book
-from src.flibusta_searcher.domain.exceptions import ParseError
-from src.flibusta_searcher.infrastructure.pagination import extract_next_link
+from flibusta_searcher.domain.entities import Author, Book
+from flibusta_searcher.domain.exceptions import ParseError
+from flibusta_searcher.infrastructure.pagination import extract_next_link
+
+
+def _strip_flibusta_markup(text: str) -> str:
+    """Strip Flibusta-specific markup ([collapse], [b], etc.) that conflicts with Rich."""
+    # Remove [collapse collapsed title=...], [/collapse], [b], [/b], and similar tags
+    # Keep content inside; only remove the tag wrappers so Rich won't parse them
+    text = re.sub(r"\[collapse[^\]]*\]", "", text)
+    text = re.sub(r"\[/collapse\]", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\[/?(?:b|i|u|s)\]", "", text)
+    # Remove any remaining [tagname] or [/tagname] style tags
+    return re.sub(r"\[/?[a-zA-Z][a-zA-Z0-9_\s=]*\]", "", text)
 
 
 def _strip_html(text: str) -> str:
@@ -20,6 +31,8 @@ def _strip_html(text: str) -> str:
     text = re.sub(r"</(p|div|li|tr)[^>]*>", "\n", text, flags=re.IGNORECASE)
     # Remove all remaining HTML tags
     text = re.sub(r"<[^>]+>", " ", text)
+    # Strip Flibusta markup that conflicts with Rich
+    text = _strip_flibusta_markup(text)
     # Collapse multiple spaces to one
     text = re.sub(r"[ \t]+", " ", text)
     # Collapse multiple newlines to one
